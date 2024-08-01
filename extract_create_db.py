@@ -25,15 +25,22 @@ table_vals = source_table.tbody.find_all('tr')
 db_vals = [x.find_all('td') for x in table_vals]
 
 stat_vals = [[x.get_text(strip=True) for x in db_row[-7:]] for db_row in db_vals]
-id_vals = [db_row[0].get_text(strip=True) for db_row in db_vals]
+id_vals = [int(db_row[0].get_text(strip=True)) for db_row in db_vals]
 name_vals = [db_row[1].find('a').get_text(strip=True) for db_row in db_vals]
 type_vals = [[x.get_text(strip=True) for x in db_row[2].find_all('a')] for db_row in db_vals]
 
 df = pd.DataFrame(data=zip(id_vals,name_vals,type_vals,*np.array(stat_vals).transpose()), columns=db_cols)
 df = df.drop_duplicates(subset=['Number'])
 
+# Had to break down list into two columns for dual typing
+df.insert(3, 'secondarytype', [x[1] if len(x) > 1 else '' for x in df['Type']])
+df['Type'] = df['Type'].map(lambda x: x[0])
+df.rename(columns={'Type': 'primarytype'}, inplace=True)
+
 conn = sqlite3.connect('pokemon.db')
 curs = conn.cursor()
 
-#curs.execute('CREATE TABLE pokedex(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', db_cols)
-#curs.execute('INSERT INTO pokedex VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+df.to_sql(name='pokedex', con=conn, index=False)
+
+output = curs.execute('SELECT * FROM pokedex LIMIT 10')
+print(output.fetchall())
